@@ -10,6 +10,7 @@ license = "MIT OR APACHE"
 proc-macro = true
 
 [dependencies]
+nullable-result = "0.7.0"
 proc-macro2 = "1.0.36"
 quote = "1.0.15"
-syn = "1.0.86"
+syn = { version = "1.0.86", features = ["full"] }
