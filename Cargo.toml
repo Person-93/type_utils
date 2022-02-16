@@ -1,0 +1,15 @@
+[package]
+name = "type_utils"
+authors = ["person93 <person93.person93@gmail.com>"]
+version = "0.1.0-dev"
+edition = "2021"
+description = "Generate types based on existing types"
+license = "MIT OR APACHE"
+
+[lib]
+proc-macro = true
+
+[dependencies]
+proc-macro2 = "1.0.36"
+quote = "1.0.15"
+syn = "1.0.86"
