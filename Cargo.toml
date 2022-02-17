@@ -5,6 +5,7 @@ version = "0.1.0-dev"
 edition = "2021"
 description = "Generate types based on existing types"
 license = "MIT OR APACHE"
+repository = "https://github.com/Person-93/type_utils"
 
 [lib]
 proc-macro = true
