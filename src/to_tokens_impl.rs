@@ -1,7 +1,7 @@
 use crate::{Action, ActionKind, TypeKind, TypeUtils};
 use proc_macro2::TokenStream;
 use quote::ToTokens;
-use syn::{Fields, FieldsNamed, Item, ItemEnum, ItemStruct, Visibility};
+use syn::{Attribute, Fields, FieldsNamed, Item, ItemEnum, ItemStruct, Visibility};
 
 impl ToTokens for TypeUtils {
   fn to_tokens(&self, tokens: &mut TokenStream) {
@@ -14,17 +14,19 @@ impl ToTokens for TypeUtils {
   {
     let mut tokens = TokenStream::new();
     for action in self.actions {
-      action.into_item(&self.kind).to_tokens(&mut tokens);
+      action
+        .into_item(&self.kind, &self.attrs)
+        .to_tokens(&mut tokens);
     }
     tokens
   }
 }
 
 impl Action {
-  fn into_item(self, type_kind: &TypeKind) -> Item {
+  fn into_item(self, type_kind: &TypeKind, attrs: &[Attribute]) -> Item {
     match (self.kind, type_kind) {
       (ActionKind::Pick, TypeKind::Struct(fields)) => Item::Struct(ItemStruct {
-        attrs: Default::default(), // TODO handle attributes in generated types
+        attrs: attrs.to_vec(),
         vis: self.vis,
         struct_token: Default::default(),
         ident: self.ident,
@@ -54,7 +56,7 @@ impl Action {
         semi_token: None,
       }),
       (ActionKind::Pick, TypeKind::Enum(variants)) => Item::Enum(ItemEnum {
-        attrs: Default::default(), // TODO handle attributes in generated types
+        attrs: attrs.to_vec(),
         vis: self.vis,
         enum_token: Default::default(),
         ident: self.ident,
@@ -73,7 +75,7 @@ impl Action {
           .collect(),
       }),
       (ActionKind::Omit, TypeKind::Struct(fields)) => Item::Struct(ItemStruct {
-        attrs: Default::default(), // TODO handle attributes in generated types
+        attrs: attrs.to_vec(),
         vis: self.vis,
         struct_token: Default::default(),
         ident: self.ident,
@@ -96,7 +98,7 @@ impl Action {
         semi_token: None,
       }),
       (ActionKind::Omit, TypeKind::Enum(variants)) => Item::Enum(ItemEnum {
-        attrs: Default::default(), // TODO handle attributes in generated types
+        attrs: attrs.to_vec(),
         vis: self.vis,
         enum_token: Default::default(),
         ident: self.ident,

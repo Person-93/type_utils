@@ -2,7 +2,9 @@ use proc_macro::TokenStream;
 use proc_macro2::Ident;
 use quote::ToTokens;
 use std::fmt::{Display, Formatter};
-use syn::{parse_macro_input, FieldsNamed, FieldsUnnamed, Generics, Variant, Visibility};
+use syn::{
+  parse_macro_input, Attribute, FieldsNamed, FieldsUnnamed, Generics, Variant, Visibility,
+};
 
 mod parse_impl;
 mod to_tokens_impl;
@@ -17,6 +19,7 @@ pub fn type_utils(input: TokenStream) -> TokenStream {
 #[derive(Clone)]
 struct TypeUtils {
   kind: TypeKind,
+  attrs: Vec<Attribute>,
   actions: Vec<Action>,
   ident: Ident,
 }

@@ -1,5 +1,5 @@
 use crate::{Action, ActionKind, SelectedField, Selection, TypeKind, TypeUtils};
-use nullable_result::{extract, IterExt, MaybeTryFrom, MaybeTryInto, NullableResult};
+use nullable_result::{extract, MaybeTryFrom, NullableResult};
 use proc_macro2::{Ident, Span};
 use syn::{
   braced, parenthesized,
@@ -20,23 +20,27 @@ impl TryFrom<DeriveInput> for TypeUtils {
   type Error = Error;
 
   fn try_from(input: DeriveInput) -> Result<Self> {
+    let mut actions = Vec::new();
+    let mut attrs = Vec::new();
+    for attr in input.attrs {
+      match Action::maybe_try_from(attr.clone()) {
+        NullableResult::Ok(action) => actions.push(action),
+        NullableResult::Err(err) => return Err(err),
+        NullableResult::Null => attrs.push(attr),
+      }
+    }
+
+    if actions.is_empty() {
+      return Err(Error::new(
+        Span::call_site(),
+        "TypeUtils derived with no actions",
+      ));
+    }
+
     let utils = TypeUtils {
       kind: input.data.try_into()?,
-      actions: {
-        let actions = input
-          .attrs
-          .into_iter()
-          .map(MaybeTryInto::maybe_try_into)
-          .filter_nulls()
-          .collect::<Result<Vec<_>>>()?;
-        if actions.is_empty() {
-          return Err(Error::new(
-            Span::call_site(),
-            "TypeUtils derived with no actions",
-          ));
-        }
-        actions
-      },
+      attrs,
+      actions,
       ident: input.ident,
     };
 
