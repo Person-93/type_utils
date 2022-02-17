@@ -1,12 +1,10 @@
 use crate::{Action, ActionKind, SelectedField, Selection, TypeKind, TypeUtils};
-use nullable_result::{extract, MaybeTryFrom, NullableResult};
 use proc_macro2::{Ident, Span};
 use syn::{
   braced, parenthesized,
-  parse::{Parse, ParseStream},
+  parse::{Nothing, Parse, ParseStream},
   punctuated::Punctuated,
-  Attribute, Data, DataEnum, DataStruct, DeriveInput, Error, Fields, Generics, Result, Token,
-  Visibility,
+  Data, DataEnum, DataStruct, DeriveInput, Error, Fields, Generics, Result, Token, Visibility,
 };
 
 impl Parse for TypeUtils {
@@ -22,12 +20,40 @@ impl TryFrom<DeriveInput> for TypeUtils {
   fn try_from(input: DeriveInput) -> Result<Self> {
     let mut actions = Vec::new();
     let mut attrs = Vec::new();
+    let mut derives = Vec::new();
     for attr in input.attrs {
-      match Action::maybe_try_from(attr.clone()) {
-        NullableResult::Ok(action) => actions.push(action),
-        NullableResult::Err(err) => return Err(err),
-        NullableResult::Null => attrs.push(attr),
-      }
+      let kind = match attr.path.get_ident() {
+        Some(ident) if ident == "tu_derive" => {
+          derives.extend(syn::parse2::<TuDerive>(attr.tokens)?.0);
+          continue;
+        }
+        Some(ident) if ident == "pick" => ActionKind::Pick,
+        Some(ident) if ident == "omit" => ActionKind::Omit,
+        Some(_) | None => {
+          attrs.push(attr);
+          continue;
+        }
+      };
+
+      let PartialAction {
+        vis,
+        ident,
+        generics,
+        selection,
+      } = syn::parse2::<PartialAction>(attr.tokens)?;
+
+      actions.push(Action {
+        kind,
+        derives: std::mem::take(&mut derives),
+        vis,
+        ident,
+        generics,
+        selection,
+      });
+    }
+
+    if let Some(first) = derives.first() {
+      return Err(Error::new(first.span(), "tu_derive applies to nothing"));
     }
 
     if actions.is_empty() {
@@ -140,57 +166,6 @@ impl TryFrom<Data> for TypeKind {
   }
 }
 
-impl MaybeTryFrom<Attribute> for Action {
-  type Error = Error;
-
-  fn maybe_try_from(attr: Attribute) -> NullableResult<Self, Self::Error> {
-    let kind = match attr.path.get_ident() {
-      Some(ident) if ident == "pick" => ActionKind::Pick,
-      Some(ident) if ident == "omit" => ActionKind::Omit,
-      Some(_) | None => return NullableResult::Null,
-    };
-
-    let Partial {
-      vis,
-      ident,
-      generics,
-      selection,
-    } = extract!(syn::parse2::<Partial>(attr.tokens));
-
-    return NullableResult::Ok(Action {
-      kind,
-      vis,
-      ident,
-      generics,
-      selection,
-    });
-
-    struct Partial {
-      vis: Visibility,
-      ident: Ident,
-      generics: Generics,
-      selection: Selection,
-    }
-
-    impl Parse for Partial {
-      fn parse(input: ParseStream) -> Result<Self> {
-        let content;
-        parenthesized!(content in input);
-        Ok(Partial {
-          vis: content.parse()?,
-          ident: content.parse()?,
-          generics: {
-            let mut generics: Generics = content.parse()?;
-            generics.where_clause = content.parse()?;
-            generics
-          },
-          selection: content.parse()?,
-        })
-      }
-    }
-  }
-}
-
 impl Parse for Selection {
   fn parse(input: ParseStream) -> Result<Self> {
     let content;
@@ -208,6 +183,42 @@ impl Parse for SelectedField {
     Ok(SelectedField {
       vis: input.parse()?,
       ident: input.parse()?,
+    })
+  }
+}
+
+struct TuDerive(Punctuated<Ident, Token![,]>);
+
+impl Parse for TuDerive {
+  fn parse(input: ParseStream) -> Result<Self> {
+    let content;
+    parenthesized!(content in input);
+    let tu_derive = TuDerive(Punctuated::parse_separated_nonempty(&content)?);
+    content.parse::<Nothing>()?;
+    Ok(tu_derive)
+  }
+}
+
+struct PartialAction {
+  vis: Visibility,
+  ident: Ident,
+  generics: Generics,
+  selection: Selection,
+}
+
+impl Parse for PartialAction {
+  fn parse(input: ParseStream) -> Result<Self> {
+    let content;
+    parenthesized!(content in input);
+    Ok(PartialAction {
+      vis: content.parse()?,
+      ident: content.parse()?,
+      generics: {
+        let mut generics: Generics = content.parse()?;
+        generics.where_clause = content.parse()?;
+        generics
+      },
+      selection: content.parse()?,
     })
   }
 }

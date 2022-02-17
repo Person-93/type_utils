@@ -1,7 +1,9 @@
 use crate::{Action, ActionKind, TypeKind, TypeUtils};
-use proc_macro2::TokenStream;
-use quote::ToTokens;
-use syn::{Attribute, Fields, FieldsNamed, Item, ItemEnum, ItemStruct, Visibility};
+use proc_macro2::{Ident, TokenStream};
+use quote::{format_ident, quote, ToTokens};
+use syn::{
+  AttrStyle, Attribute, Fields, FieldsNamed, Item, ItemEnum, ItemStruct, Path, Visibility,
+};
 
 impl ToTokens for TypeUtils {
   fn to_tokens(&self, tokens: &mut TokenStream) {
@@ -26,7 +28,13 @@ impl Action {
   fn into_item(self, type_kind: &TypeKind, attrs: &[Attribute]) -> Item {
     match (self.kind, type_kind) {
       (ActionKind::Pick, TypeKind::Struct(fields)) => Item::Struct(ItemStruct {
-        attrs: attrs.to_vec(),
+        attrs: {
+          let mut attrs = attrs.to_vec();
+          if let Some(derive) = expand_derives(&self.derives) {
+            attrs.insert(0, derive);
+          }
+          attrs
+        },
         vis: self.vis,
         struct_token: Default::default(),
         ident: self.ident,
@@ -56,7 +64,13 @@ impl Action {
         semi_token: None,
       }),
       (ActionKind::Pick, TypeKind::Enum(variants)) => Item::Enum(ItemEnum {
-        attrs: attrs.to_vec(),
+        attrs: {
+          let mut attrs = attrs.to_vec();
+          if let Some(derive) = expand_derives(&self.derives) {
+            attrs.insert(0, derive);
+          }
+          attrs
+        },
         vis: self.vis,
         enum_token: Default::default(),
         ident: self.ident,
@@ -75,7 +89,13 @@ impl Action {
           .collect(),
       }),
       (ActionKind::Omit, TypeKind::Struct(fields)) => Item::Struct(ItemStruct {
-        attrs: attrs.to_vec(),
+        attrs: {
+          let mut attrs = attrs.to_vec();
+          if let Some(derive) = expand_derives(&self.derives) {
+            attrs.insert(0, derive);
+          }
+          attrs
+        },
         vis: self.vis,
         struct_token: Default::default(),
         ident: self.ident,
@@ -98,7 +118,13 @@ impl Action {
         semi_token: None,
       }),
       (ActionKind::Omit, TypeKind::Enum(variants)) => Item::Enum(ItemEnum {
-        attrs: attrs.to_vec(),
+        attrs: {
+          let mut attrs = attrs.to_vec();
+          if let Some(derive) = expand_derives(&self.derives) {
+            attrs.insert(0, derive);
+          }
+          attrs
+        },
         vis: self.vis,
         enum_token: Default::default(),
         ident: self.ident,
@@ -120,5 +146,19 @@ impl Action {
         panic!("{action_kind} action selected for {}", type_kind.display())
       }
     }
+  }
+}
+
+fn expand_derives(derives: &[Ident]) -> Option<Attribute> {
+  if derives.is_empty() {
+    None
+  } else {
+    Some(Attribute {
+      pound_token: Default::default(),
+      style: AttrStyle::Outer,
+      bracket_token: Default::default(),
+      path: Path::from(format_ident!("derive")),
+      tokens: quote! { (#(#derives),*) },
+    })
   }
 }

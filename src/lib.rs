@@ -9,7 +9,7 @@ use syn::{
 mod parse_impl;
 mod to_tokens_impl;
 
-#[proc_macro_derive(TypeUtils, attributes(pick, omit))]
+#[proc_macro_derive(TypeUtils, attributes(tu_derive, pick, omit))]
 pub fn type_utils(input: TokenStream) -> TokenStream {
   parse_macro_input!(input as TypeUtils)
     .into_token_stream()
@@ -27,6 +27,7 @@ struct TypeUtils {
 #[derive(Clone)]
 struct Action {
   kind: ActionKind,
+  derives: Vec<Ident>,
   vis: Visibility,
   ident: Ident,
   generics: Generics,
